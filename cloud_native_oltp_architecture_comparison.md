@@ -1395,7 +1395,657 @@ This does not prove any one commercial product is always superior; it identifies
 
 ---
 
-# 32. What “cheaper and faster” evidence really says
+
+# 32. Vendors sell customer-visible outcomes, not architectural elegance
+
+One important product/marketing lesson from this session is:
+
+> **Neither Microsoft nor Google primarily sells the internal architectural elegance of Socrates or AlloyDB.**  
+> They translate architectural differences into outcomes customers can directly recognize: **price/performance, elasticity, predictable cost, HTAP, AI capability, and migration simplicity**.
+
+That matters when evaluating a database service. Customers do not buy `LZ`, `XLOG`, `LPS`, or `protection groups` for their own sake. They buy the outcomes those mechanisms enable.
+
+```text
+Internal architecture
+        |
+        v
+Resource / failure characteristics
+        |
+        v
+Customer-visible outcomes
+        |
+        +--> Throughput
+        +--> Commit latency
+        +--> Price/performance
+        +--> Elasticity
+        +--> Operational simplicity
+        +--> HTAP / AI capability
+```
+
+## 32.1 Microsoft: how Hyperscale is positioned against Aurora
+
+Microsoft explicitly markets Azure SQL Database Hyperscale against Amazon Aurora PostgreSQL using a benchmark claim of **up to 68% better performance/value**.
+
+However, that result comes from a Microsoft-commissioned HammerDB TPROC-C benchmark performed by Principled Technologies. Therefore it should be interpreted as:
+
+```text
+Observed product benchmark
+        =
+Storage architecture
++ SQL Server engine
++ PostgreSQL engine differences
++ Hardware/SKU
++ Configuration
++ Benchmark methodology
+```
+
+It would therefore be incorrect to interpret `68%` as:
+
+> Socrates architecture is intrinsically 68% better than Aurora architecture.
+
+The marketing message is nevertheless clear.
+
+| Internal / architectural property | Customer-facing message |
+|---|---|
+| Compute / log / page separation | Independent scale |
+| Page Servers + shared storage | Large DB / rapid scale-out |
+| Log Service | Higher write/log scalability |
+| Named replicas | Read scale / HTAP isolation |
+| Simplified I/O charging | More predictable cost |
+| Azure integration | Enterprise / AI-ready platform |
+
+Microsoft sells:
+
+> **better scaling, better price/performance, and broader workload capability**
+
+rather than:
+
+> **a more elegant decomposition than Aurora.**
+
+---
+
+## 32.2 Google: how AlloyDB is positioned against Aurora
+
+Google can position AlloyDB against Aurora PostgreSQL even more directly because both are PostgreSQL-compatible services.
+
+Google has published benchmark claims for AlloyDB on Axion/C4A of:
+
+- **up to 2× higher throughput**
+- **up to 3× better price/performance**
+
+than Aurora PostgreSQL on Graviton4 under the cited benchmark conditions.
+
+Google also markets AlloyDB pricing as:
+
+> **transparent and predictable, with no opaque I/O charges**
+
+The architectural mapping is:
+
+| Internal / architectural property | Customer-facing message |
+|---|---|
+| Regional Log Store | Fast transaction durability |
+| Elastic LPS | High throughput / elastic processing |
+| Shared regional block storage | Storage scale / efficiency |
+| PostgreSQL compatibility | Easier Aurora migration |
+| Columnar engine | HTAP / operational analytics |
+| AlloyDB AI / vector | AI-ready operational database |
+| Pricing model | Predictable price/performance |
+
+Again, Google does not primarily sell `LPS` or “multi-layer disaggregation.” It sells the resulting:
+
+- performance,
+- economics,
+- HTAP,
+- AI,
+- migration story.
+
+---
+
+## 32.3 Separate architecture, benchmark, and marketing evidence
+
+When evaluating a database service, keep four evidence layers distinct:
+
+```text
+Architecture paper
+    |
+    +--> Mechanism / invariant
+
+Vendor benchmark
+    |
+    +--> Product-level outcome
+
+Vendor marketing
+    |
+    +--> Selected value proposition
+
+Independent production evidence
+    |
+    +--> Operational reality
+```
+
+In particular, a product benchmark advantage must not automatically be converted into a causal claim about storage architecture.
+
+At the same time, from an adoption perspective, the important question is:
+
+> **Can an architectural advantage be converted into customer-visible improvements in cost, performance, and operability?**
+
+---
+
+# 33. HTAP comparison: a “ten-years-later” differentiator for newer database services
+
+When Aurora appeared, **cloud-native OLTP** itself was a major differentiator.
+
+Roughly a decade later, managed HA, distributed storage, read scaling, and elastic cloud deployment are normal competitive expectations. A newer database service therefore needs a broader value proposition than simply “faster OLTP.”
+
+```text
+2015
+    Cloud-native OLTP
+        |
+        v
+~2020
+    Better disaggregation
+    Better price/performance
+        |
+        v
+2026
+    OLTP
+      + HTAP
+      + Vector
+      + AI
+      + Zero/Low-ETL
+```
+
+HTAP is therefore both:
+
+1. a genuine technical capability, and
+2. a **marketing/business-case mechanism that can justify migration to a newer database service**.
+
+---
+
+## 33.1 Three HTAP models
+
+### A. Aurora + Redshift Zero-ETL: externalized HTAP
+
+```text
+Aurora
+  OLTP
+   |
+   | managed change replication
+   v
+Redshift
+  OLAP / MPP
+```
+
+Aurora itself does not primarily embed a large integrated analytical engine. Instead, AWS connects Aurora to a specialized analytical system.
+
+**Strengths**
+
+- Very strong OLTP/OLAP resource isolation
+- Redshift provides specialized MPP/columnar analytics
+- Heavy OLAP does not directly consume Aurora primary CPU
+- Strong fit for large analytical workloads
+
+**Trade-offs**
+
+- Two database products must be operated
+- Two compute/storage cost domains
+- Asynchronous replication lag
+- Additional source/target schema lifecycle
+- DDL and resynchronization considerations
+- Zero-ETL-specific constraints such as key/schema requirements
+- Additional integration state to observe and troubleshoot
+
+Therefore:
+
+> **Zero-ETL reduces ETL engineering, but it does not remove the distributed-system boundary.**
+
+```text
+Zero-ETL
+    !=
+Zero operational architecture
+```
+
+---
+
+### B. Hyperscale: replica-based HTAP
+
+Hyperscale named replicas are positioned for workload isolation, including HTAP-style use cases.
+
+```text
+                   Shared DB storage
+                         |
+          +--------------+--------------+
+          |              |              |
+          v              v              v
+       Primary       Named Replica   Named Replica
+        OLTP             BI            Analytics
+```
+
+Named replicas can have compute profiles different from the primary.
+
+**Strengths**
+
+- Analytics compute is separated from primary OLTP compute
+- Same logical database/shared storage
+- Workloads can be isolated per replica
+- Dedicated BI/reporting replicas are possible
+- Replica compute can scale independently
+
+**Trade-offs**
+
+- Analytics freshness depends on replica replay
+- Not necessarily equivalent to a dedicated MPP warehouse
+- Additional replica compute cost
+- Network/log-replay/backpressure behavior still matters
+
+---
+
+### C. AlloyDB: integrated columnar HTAP
+
+AlloyDB integrates a columnar execution path alongside PostgreSQL row processing.
+
+```text
+                  AlloyDB
+                     |
+           +---------+---------+
+           |                   |
+           v                   v
+      Row processing      Columnar engine
+          OLTP                OLAP
+```
+
+This creates a strong product story:
+
+> Keep a PostgreSQL-compatible operational database while gaining transactional and analytical processing in the same platform.
+
+However, **primary-instance HTAP introduces resource-predictability concerns**.
+
+Google documentation states that the columnar engine reserves **30% of instance memory by default** for the column store.
+
+```text
+AlloyDB Primary
++-----------------------------------+
+| OLTP row engine                   |
+|                                   |
+| Columnar engine                   |
+|                                   |
+| Shared:                           |
+|   CPU                             |
+|   Memory                          |
+|   Memory bandwidth                |
+|   CPU cache                       |
+|   Instance resources              |
++-----------------------------------+
+```
+
+Heavy analytical queries can therefore consume:
+
+- CPU
+- memory bandwidth
+- CPU cache
+- query memory
+- background columnar-maintenance resources
+
+and potentially make OLTP p99 latency less predictable.
+
+Google's own sizing guidance recommends using a **read pool with the columnar engine** for heavy-write workloads combined with latency-sensitive analytics.
+
+That changes the architecture to:
+
+```text
+                    AlloyDB cluster
+
+              +--------------------+
+              |                    |
+              v                    v
+          Primary              Read Pool
+           OLTP                 Columnar
+                                   OLAP
+              \                    /
+               +--- Shared storage+
+```
+
+This improves isolation, but introduces:
+
+- additional read-pool compute cost,
+- replica replay lag,
+- additional capacity planning.
+
+---
+
+## 33.2 HTAP model comparison
+
+| Dimension | Aurora + Redshift Zero-ETL | Hyperscale Named Replica | AlloyDB Columnar on Primary | AlloyDB Columnar on Read Pool |
+|---|---|---|---|---|
+| Analytics engine | **Dedicated MPP Redshift** | SQL Server replica | Integrated columnar | Integrated columnar |
+| OLTP/OLAP isolation | **Very high** | High | **Low–medium** | High |
+| Freshness | Async replication | Replica lag | **Very high** | Replica lag |
+| Resource predictability | **High** | High | **Can be low** | High |
+| Extra compute | Redshift required | Replica required | Minimal | Read pool required |
+| Additional storage/state | **High** | Shared storage | Low | Shared storage |
+| Operational boundaries | **Highest** | Medium | Lowest | Medium |
+| Heavy OLAP suitability | **High** | Medium | Low–medium | Medium–high |
+| Operational analytics | Medium–high | High | **Very high** | **High** |
+| Schema/replication complexity | **High** | Medium | Low | Medium |
+| OLTP p99 interference risk | Low | Low | **Can be high** | Low |
+
+A useful rule of thumb is:
+
+```text
+Light / operational analytics
+        -> Integrated HTAP can be attractive
+
+Mixed workload requiring isolation
+        -> Shared-storage + separate compute is attractive
+
+Heavy / unpredictable OLAP
+        -> Separate MPP analytical engine may be safer
+```
+
+Therefore:
+
+> **Integrated HTAP is not universally better than externalized analytics. It trades freshness/simplicity against isolation/predictability.**
+
+---
+
+# 34. Adoption, popularity, and reputation as first-class selection criteria
+
+Architecture alone does not determine whole-system behavior.
+
+For a production database service, the following also matter:
+
+- how many years it has been used in production,
+- how many similar-scale customers exist,
+- how much failure/upgrade/performance pathology knowledge has accumulated,
+- how much independent troubleshooting material exists,
+- whether skilled operators can be hired,
+- how mature vendor support paths are.
+
+This is not merely a “popularity contest.”
+
+> **Installed-base maturity reduces unknown unknowns and can lower MTTR.**
+
+---
+
+## 34.1 Aurora: strongest service-specific production track record
+
+AWS states that Aurora is used by **hundreds of thousands of customers**.
+
+Aurora also has a large public history of production references across very large and mission-critical workloads.
+
+On TrustRadius, Aurora has a comparatively large independent review corpus, with an overall score around:
+
+- **8.1/10**
+- **162 reviews/ratings** as observed in 2026
+
+Common positive themes include:
+
+- availability / HA,
+- managed operations,
+- PostgreSQL/MySQL compatibility,
+- backup/recovery,
+- scale,
+- AWS ecosystem integration.
+
+Common concerns include:
+
+- cost,
+- I/O economics,
+- opacity of managed internals,
+- version/extension limitations,
+- workload-dependent scaling/cost surprises.
+
+The fact that the negative characteristics are also widely discussed is itself part of maturity.
+
+```text
+Unknown issue
+    |
+    v
+Search
+    |
+    +--> many previous incidents
+    +--> AWS documentation
+    +--> community discussions
+    +--> established support paths
+```
+
+---
+
+## 34.2 Azure SQL / Hyperscale: large SQL Server ecosystem advantage
+
+Azure SQL Database as a whole has a large customer and review ecosystem.
+
+On TrustRadius, Azure SQL Database has roughly:
+
+- **8.5/10**
+- **293 reviews/ratings** as observed in 2026
+
+Important caveat:
+
+> **These reviews cover Azure SQL Database broadly, not Hyperscale only.**
+
+Therefore Azure SQL's maturity should not be treated as direct evidence for every Socrates/Hyperscale-specific storage behavior.
+
+Still, Hyperscale has significant public references in:
+
+- core banking,
+- large enterprises,
+- large databases,
+- high-throughput SaaS.
+
+It is not an experimental architecture.
+
+In addition, the existing SQL Server ecosystem contributes:
+
+- T-SQL expertise,
+- SSMS/tooling familiarity,
+- DBA talent,
+- Microsoft enterprise integration.
+
+---
+
+## 34.3 AlloyDB: architectural reputation is ahead of public adoption evidence
+
+AlloyDB has a strong technical reputation around:
+
+- modern multi-layer disaggregation,
+- PostgreSQL compatibility,
+- price/performance,
+- HTAP,
+- AI/vector functionality,
+- pricing transparency.
+
+Google has also published customer stories, including Aurora PostgreSQL migrations such as Galxe, which reported a **40% database-cost reduction**.
+
+However, its independent review corpus is still much smaller than Aurora or Azure SQL.
+
+For example, G2 showed only **one AlloyDB-specific review** in the observed 2026 snapshot.
+
+That does **not** imply:
+
+> nobody uses AlloyDB.
+
+It means:
+
+> **there is much less publicly visible, long-running, service-specific operational evidence from a broad customer base.**
+
+This suggests a larger maturity-risk premium:
+
+```text
+Maturity risk premium
+    =
+less public edge-case history
++ fewer independent troubleshooting reports
++ shorter upgrade/failure history
+```
+
+---
+
+## 34.4 Architectural sophistication and operational confidence are separate axes
+
+From a pure architecture perspective, one might argue:
+
+```text
+Functional disaggregation
+
+Socrates / AlloyDB
+        >
+Original Aurora
+```
+
+But in terms of publicly visible production evidence:
+
+```text
+Operational evidence / maturity
+
+Aurora
+    very strong
+
+Azure SQL / Hyperscale
+    strong
+
+AlloyDB
+    growing / less publicly observable
+```
+
+These rankings can differ, and they should not be conflated.
+
+---
+
+## 34.5 Convert popularity into operational reliability
+
+The real value of popularity is not social proof.
+
+```text
+Large installed base
+        |
+        v
+More real failure cases
+        |
+        v
+More known workarounds
+        |
+        v
+Better documentation/community/support familiarity
+        |
+        v
+Lower MTTR
+```
+
+Operational availability therefore depends on more than the service SLA:
+
+\[
+Operational\ Availability
+\neq
+Service\ SLA\ only
+\]
+
+A more practical model is:
+
+\[
+Operational\ Availability
+=
+Service\ Reliability
++
+Observability
++
+Operator\ Knowledge
++
+Ecosystem
++
+Support\ Maturity
+\]
+
+---
+
+## 34.6 Put maturity/ecosystem explicitly into the selection score
+
+For a mission-critical database, a useful scoring model is:
+
+\[
+Score =
+W_1(WorkloadFit)
++
+W_2(NFRFit)
++
+W_3(PricePerformance)
++
+W_4(OperationalMaturity)
++
+W_5(Ecosystem)
++
+W_6(Portability)
+\]
+
+For a core transactional system, assigning **20–30% of the decision weight to operational maturity + ecosystem** can be entirely reasonable.
+
+That means a new database that is:
+
+```text
+20–30% faster
+20% cheaper
+```
+
+but has:
+
+```text
+little production history
+little community knowledge
+unknown upgrade/failure corner cases
+```
+
+does not automatically win.
+
+Conversely, if:
+
+```text
+workload strongly matches the new architecture
++ compatibility is high
++ realistic load/failure testing passes
++ vendor support is acceptable
+```
+
+then accepting a maturity-risk premium may be rational.
+
+---
+
+## 34.7 Adoption / reputation comparison
+
+| Dimension | Aurora | Azure SQL / Hyperscale | AlloyDB |
+|---|---|---|---|
+| Service history | **Very long** | Long / Hyperscale mature | Newer |
+| Service-specific adoption evidence | **Very strong** | Azure SQL overall very strong; Hyperscale-specific less transparent | Growing |
+| Independent review corpus | **Large** | **Large for Azure SQL overall** | **Small** |
+| Large enterprise references | **Very many** | **Many** | Increasing |
+| Community troubleshooting knowledge | **Very large** | Large | Smaller |
+| PostgreSQL ecosystem leverage | **High (Aurora PG)** | N/A | **High** |
+| SQL Server ecosystem leverage | N/A | **Very high** | N/A |
+| Architectural novelty | Historical pioneer | Advanced | **Very modern** |
+| Unknown-unknown risk | **Low** | Low–medium | **Relatively higher** |
+| Adoption risk | **Low** | Low–medium | Medium |
+
+This is not an objective market-share ranking. It is a **risk-oriented interpretation of the amount of public operational evidence visible in 2026**.
+
+---
+
+## 34.8 Additional questions for database selection
+
+In addition to architecture, ask:
+
+1. **How many similar-industry/similar-scale customers run this in production?**
+2. **How many years have they operated it?**
+3. **Is there enough service-specific independent review material?**
+4. **Are known failure modes, waits, throttling, and recovery behaviors documented?**
+5. **Is there a long upgrade/version-history record?**
+6. **Has the vendor support organization seen similar incidents many times before?**
+7. **Can the required DBA/SRE skills be hired in the market?**
+8. **Can the architectural advantage actually be reproduced on the target workload?**
+
+The most important practical question is:
+
+> **Not only “Can this architecture run my workload?” but also “How many organizations similar to mine have already discovered its failure modes for me?”**
+
+# 35. What “cheaper and faster” evidence really says
 
 The strongest academic/model evidence in this session is:
 
@@ -1439,7 +2089,7 @@ Therefore product-level “X is faster than Y because of architecture” claims 
 
 ---
 
-# 33. Key session conclusions: claim audit
+# 36. Key session conclusions: claim audit
 
 | Claim | Assessment |
 |---|---|
@@ -1471,7 +2121,7 @@ Therefore product-level “X is faster than Y because of architecture” claims 
 
 ---
 
-# 34. The deepest architectural lesson
+# 37. The deepest architectural lesson
 
 The evolution can be understood as progressively shrinking the amount of work on the synchronous transaction path.
 
@@ -1534,7 +2184,7 @@ By that metric:
 
 ---
 
-# 35. A second deep lesson: “move” vs. “eliminate”
+# 38. A second deep lesson: “move” vs. “eliminate”
 
 For every cloud-native optimization, ask:
 
@@ -1561,7 +2211,7 @@ This vocabulary prevents misleading statements such as “log-based systems elim
 
 ---
 
-# 36. Third deep lesson: specialization by NFR
+# 39. Third deep lesson: specialization by NFR
 
 The Socrates and AlloyDB architectures strongly suggest the following design principle:
 
@@ -1593,7 +2243,7 @@ This is analogous to a memory/storage hierarchy, but applied to **distributed da
 
 ---
 
-# 37. Fourth deep lesson: durability has a price-performance frontier
+# 40. Fourth deep lesson: durability has a price-performance frontier
 
 Aurora demonstrates that aggressive replication can produce extraordinary durability.
 
@@ -1615,7 +2265,7 @@ That is exactly the multi-dimensional framing used by the 2025 *OLTP in the Clou
 
 ---
 
-# 38. Open research questions
+# 41. Open research questions
 
 The session exposed several areas where the public literature is still incomplete.
 
@@ -1706,7 +2356,7 @@ This causal chain is intuitively compelling but not yet well established by the 
 
 ---
 
-# 39. Recommended evaluation framework
+# 42. Recommended evaluation framework
 
 When comparing a new cloud database, fill out this matrix rather than only labeling it “NoSQL,” “NewSQL,” or “disaggregated.”
 
@@ -1755,7 +2405,7 @@ This taxonomy is more useful for modern cloud databases than the simple **NoSQL 
 
 ---
 
-# 40. Final assessment
+# 43. Final assessment
 
 ## Aurora
 
@@ -1805,7 +2455,7 @@ This taxonomy is more useful for modern cloud databases than the simple **NoSQL 
 
 ---
 
-# 41. One-sentence synthesis
+# 44. One-sentence synthesis
 
 > **Aurora moved page work out of the database compute node; Socrates separated durability, log distribution, page processing, and cheap storage into different services; AlloyDB further made the redo/page-processing tier explicitly elastic.**
 
@@ -1844,6 +2494,47 @@ The overall lesson is not that later architectures “eliminate” Aurora’s wo
    https://cloud.google.com/blog/products/databases/alloydb-for-postgresql-intelligent-scalable-storage
 
 6. Jack Hu, Eric Lee, Prashanth Purnananda, Hanuma Kodavalla. **Scaling and Hardening XLOG: The SQL Azure Hyperscale Log Service.** ICDE 2025, pp. 4211–4221. DOI: 10.1109/ICDE65448.2025.00314.
+
+---
+
+
+7. Microsoft Azure. **Azure SQL Database — Hyperscale price/performance positioning vs. Amazon Aurora PostgreSQL.**  
+   https://azure.microsoft.com/en-us/products/azure-sql/database
+
+8. Microsoft Learn. **Hyperscale secondary replicas — Named replicas and HTAP workloads.**  
+   https://learn.microsoft.com/en-us/azure/azure-sql/database/service-tier-hyperscale-replicas
+
+9. Google Cloud. **AlloyDB on Axion-powered C4A instances is generally available.**  
+   Includes AlloyDB vs. Aurora PostgreSQL benchmark positioning (up to 2× throughput / 3× price-performance).  
+   https://cloud.google.com/blog/products/databases/c4a-axion-processors-for-alloydb-now-ga
+
+10. Google Cloud Documentation. **AlloyDB sizing and deployment recommendations / Columnar Engine configuration.**  
+    Covers primary-only HTAP, read-pool isolation, and the default 30% column-store memory allocation.  
+    https://docs.cloud.google.com/alloydb/docs/use-sizing-recommendations  
+    https://docs.cloud.google.com/alloydb/docs/columnar-engine/configure
+
+11. AWS Documentation. **Amazon Redshift zero-ETL integrations — considerations, limitations, and troubleshooting.**  
+    Includes source/target constraints, resynchronization, and integration-state considerations.  
+    https://docs.aws.amazon.com/redshift/latest/mgmt/zero-etl.reqs-lims.html  
+    https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/zero-etl.html
+
+12. AWS. **Celebrating 10 years of Amazon Aurora innovation / Amazon RDS customer references.**  
+    AWS states that Aurora is used by hundreds of thousands of customers.  
+    https://aws.amazon.com/blogs/aws/celebrating-10-years-of-amazon-aurora-innovation/  
+    https://aws.amazon.com/rds/customers/
+
+13. TrustRadius. **Amazon Aurora Reviews / Azure SQL Database Reviews.**  
+    Used as an independent-review-corpus reference point for the 2026 snapshot.  
+    https://www.trustradius.com/products/amazon-aurora/reviews  
+    https://www.trustradius.com/products/sql-azure/reviews
+
+14. G2. **Google AlloyDB for PostgreSQL Reviews.**  
+    Used as a reference point for the comparatively small public AlloyDB-specific review corpus in 2026.  
+    https://www.g2.com/products/google-alloydb-for-postgresql/reviews
+
+15. Google Cloud. **Galxe migrates to AlloyDB for PostgreSQL, cutting costs by 40%.**  
+    Customer migration story from Aurora PostgreSQL to AlloyDB.  
+    https://cloud.google.com/blog/products/databases/galxe-migrates-to-alloydb-for-postgresql
 
 ---
 
