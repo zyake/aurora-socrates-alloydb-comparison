@@ -1409,7 +1409,702 @@ Subject to:
 
 ---
 
-# 32. 「Cheaper and Faster」Evidenceが実際に示すもの
+
+# 32. ベンダーはArchitectureの「美しさ」ではなく顧客価値を売る
+
+このセッションから得られたProduct/Marketing上の重要なInsightは次である。
+
+> **MicrosoftもGoogleも、SocratesやAlloyDBの内部ArchitectureがAuroraより「美しい」「高度である」こと自体を主な販売メッセージにはしていない。**  
+> 代わりに、Architecture上の差異を **Performance/Price、Elasticity、Predictable Cost、HTAP、AI、Migration Ease** といった顧客が直接認識できるOutcomeへ翻訳している。
+
+これはDatabase Serviceの選定でも重要である。顧客は通常、`LZ / XLOG / LPS / Protection Group` そのものを購入するわけではない。購入判断に直接効くのは、それらが最終的に何を改善するかである。
+
+```text
+Internal Architecture
+        |
+        v
+Resource / Failure Characteristics
+        |
+        v
+Customer-visible Outcome
+        |
+        +--> Throughput
+        +--> Commit Latency
+        +--> Price/Performance
+        +--> Scale-out
+        +--> Operational Simplicity
+        +--> HTAP / AI capability
+```
+
+## 32.1 Microsoft: Hyperscaleの対Auroraメッセージ
+
+MicrosoftはAzure SQL Databaseの製品ページで、HyperscaleがAmazon Aurora PostgreSQLに対して **最大68%のPerformance/Value優位**を持つというBenchmark結果を前面に出している。
+
+ただし、この数値はMicrosoftがPrincipled Technologiesへ委託したHammerDB TPROC-C系Benchmarkに基づくため、次のように解釈すべきである。
+
+```text
+Observed Product Benchmark
+        =
+Storage Architecture
++ SQL Server Engine
++ PostgreSQL Engine Difference
++ Hardware/SKU
++ Configuration
++ Benchmark Methodology
+```
+
+したがって、`68%` をそのまま
+
+> Socrates ArchitectureがAurora Architectureより68%優れる
+
+と解釈することはできない。
+
+一方、Marketing Messageとしては明確である。
+
+| Internal/Architectural Property | Customer-facing Message |
+|---|---|
+| Compute / Log / Pageの分離 | Independent Scale |
+| Page Server + Shared Storage | Large DB / Fast Scale-out |
+| Log Service | Write/Log Scalability |
+| Named Replica | Read Scale / HTAP Isolation |
+| I/O課金の単純化 | Predictable Cost |
+| Azure Platform統合 | AI-ready / Enterprise Integration |
+
+つまりMicrosoftは、
+
+> **「Socratesはより洗練されたArchitectureである」**
+
+ではなく、
+
+> **「よりScaleしやすく、Price/Performanceが良く、OLTP以外にも使える」**
+
+として販売している。
+
+---
+
+## 32.2 Google: AlloyDBの対Auroraメッセージ
+
+GoogleはAurora PostgreSQLをより直接的な競合として扱いやすい。両者ともPostgreSQL-compatibleであり、Migration Storyを作りやすいためである。
+
+GoogleはAlloyDB on Axion/C4Aについて、特定Benchmark条件下で:
+
+- Aurora PostgreSQL on Graviton4比で **最大2× Throughput**
+- **最大3× Price/Performance**
+
+という結果を公表している。
+
+さらにGoogleはAlloyDB Pricingを:
+
+> **transparent and predictable, with no opaque I/O charges**
+
+とMarketingしている。
+
+Architectureとの対応関係は次のようになる。
+
+| Internal/Architectural Property | Customer-facing Message |
+|---|---|
+| Regional Log Store | Fast Transaction Durability |
+| Elastic LPS | High Throughput / Elastic Processing |
+| Shared Regional Block Storage | Scale / Storage Efficiency |
+| PostgreSQL Compatibility | Easy Aurora Migration |
+| Columnar Engine | HTAP / Analytics |
+| AlloyDB AI / Vector | AI-ready Operational Database |
+| I/O課金モデル | Predictable Price/Performance |
+
+ここでもGoogleは、
+
+> `LPS` や `Multi-layer Disaggregation` 自体
+
+を商品価値の中心には置かず、それが生み出すPerformance、Cost、HTAP、AIを販売している。
+
+---
+
+## 32.3 ArchitectureとMarketing Claimを分離して評価する
+
+Database選定では、次を分離する必要がある。
+
+```text
+Architecture Paper
+    |
+    +--> Mechanism / Invariant
+
+Vendor Benchmark
+    |
+    +--> Product-level Outcome
+
+Vendor Marketing
+    |
+    +--> Selected Customer Value Proposition
+
+Independent Production Evidence
+    |
+    +--> Operational Reality
+```
+
+特に、Vendor BenchmarkのPerformance差をそのままStorage Architectureの因果効果へ変換してはならない。
+
+一方で、Market Adoptionの観点では、
+
+> **Architecture上の優位性が、実際にCustomer-visibleなCost/Performance/Operabilityへ変換できるか**
+
+こそが重要である。
+
+---
+
+# 33. HTAP比較: 新しいDatabase Serviceを導入するための「10年後」のDifferentiator
+
+Aurora登場時の大きな差別化要因は、
+
+> **Cloud-native OLTP**
+
+そのものだった。
+
+しかし約10年後、Managed DB、Multi-AZ、Distributed Storage、Read Replica、Autoscalingといった機能は主要Cloud DBの標準的な競争領域になった。
+
+そのため後発Database Serviceは、単なる「より速いOLTP」だけではMigrationを正当化しにくい。
+
+```text
+2015
+    Cloud-native OLTP
+        |
+        v
+2020頃
+    Better Disaggregation
+    Better Price/Performance
+        |
+        v
+2026
+    OLTP
+      + HTAP
+      + Vector
+      + AI
+      + Zero/Low-ETL
+```
+
+したがってHTAPは、純粋な技術Capabilityであると同時に、
+
+> **既存DBから新DBへ移行するBusiness Caseを大きくするMarketing Perspective**
+
+でもある。
+
+---
+
+## 33.1 3つのHTAP Model
+
+### A. Aurora + Redshift Zero-ETL: Externalized HTAP
+
+```text
+Aurora
+  OLTP
+   |
+   | managed change replication
+   v
+Redshift
+  OLAP / MPP
+```
+
+Aurora自身に強力なIntegrated Columnar OLAP Engineを入れるのではなく、RedshiftというSpecialized Analytical Systemへデータを複製する。
+
+**強み**
+
+- OLTPとOLAPのResource Isolationが非常に強い
+- RedshiftのMPP/Columnar Analyticsを利用可能
+- Heavy OLAPがPrimary OLTP CPUを直接消費しにくい
+- 専用Analytics EngineとしてのCapabilityが高い
+
+**Trade-off**
+
+- Aurora + Redshiftという2つのDatabase Productが必要
+- Compute/Storage Costが二系統になる
+- Async Replication Lagが存在する
+- Source/Target Schema Lifecycleが増える
+- DDLによりResynchronizationが発生するケースがある
+- Primary Key要件などZero-ETL固有の制約がある
+- Integration Lag / Resync / Authorizationなど追加Operational Stateが存在する
+
+したがって:
+
+> **Zero-ETLはETL Pipeline Engineeringを大幅に減らすが、Distributed System Boundaryを消すわけではない。**
+
+```text
+Zero-ETL
+    !=
+Zero Operational Architecture
+```
+
+---
+
+### B. Hyperscale: Replica-based HTAP
+
+HyperscaleのNamed Replicaは、Microsoft自身がHTAP Workload改善を主要Use Caseの1つとして挙げている。
+
+```text
+                   Shared DB Storage
+                         |
+          +--------------+--------------+
+          |              |              |
+          v              v              v
+       Primary       Named Replica   Named Replica
+        OLTP             BI            Analytics
+```
+
+Named ReplicaはPrimaryとは異なるSLO/Compute Sizeを持たせることができる。
+
+**強み**
+
+- Primary OLTPからAnalytics Computeを分離しやすい
+- 同一Logical Database / Shared Storage
+- ReplicaごとにWorkloadを分離可能
+- BI、Power BI、Spark等へ専用Replicaを割当可能
+- ScalingがPrimaryから独立
+
+**Trade-off**
+
+- AnalyticsはReplica Replay Lagの影響を受け得る
+- Dedicated MPP Warehouseと同等とは限らない
+- Replica Compute Costは別途必要
+- Network/Log Replay/BackpressureというDisaggregated System固有の挙動がある
+
+---
+
+### C. AlloyDB: Integrated Columnar HTAP
+
+AlloyDBはRow-oriented PostgreSQL ProcessingにColumnar Engineを統合する。
+
+```text
+                  AlloyDB
+                     |
+           +---------+---------+
+           |                   |
+           v                   v
+      Row Processing      Columnar Engine
+          OLTP                OLAP
+```
+
+これは非常に強いMarketing Storyになる。
+
+> PostgreSQL-compatible DBのままTransactional + Analytical Workloadを処理する。
+
+しかし、本セッションで議論した通り、**Primary上でHTAPを行う場合はResource Predictabilityに注意が必要**である。
+
+Googleの現行DocumentationではColumnar EngineはDefaultでInstance Memoryの **30%** をColumn Storeへ割り当てる。
+
+```text
+AlloyDB Primary
++-----------------------------------+
+| OLTP Row Engine                   |
+|                                   |
+| Columnar Engine                   |
+|                                   |
+| Shared:                           |
+|   CPU                             |
+|   Memory                          |
+|   Memory Bandwidth                |
+|   CPU Cache                       |
+|   Instance Resource              |
++-----------------------------------+
+```
+
+Heavy Analytical Queryは:
+
+- CPU
+- Memory Bandwidth
+- Cache
+- Query Memory
+- Background Columnar Maintenance
+
+を消費するため、OLTP p99 Latencyを予測しにくくする可能性がある。
+
+Google自身もSizing Guidanceで:
+
+> **Heavy Writes + Latency-sensitive Analytical Reads**
+
+の場合、Primaryとは別のRead PoolへColumnar Engineを配置することを推奨している。
+
+この場合Architectureは:
+
+```text
+                    AlloyDB Cluster
+
+              +--------------------+
+              |                    |
+              v                    v
+          Primary              Read Pool
+           OLTP                 Columnar
+                                   OLAP
+              \                    /
+               +--- Shared Storage+
+```
+
+となる。
+
+これはPrimary-only Integrated HTAPよりResource Isolationが強いが、
+
+- Read Pool Compute Cost
+- Replica Replay Lag
+- Additional Capacity Planning
+
+を導入する。
+
+---
+
+## 33.2 HTAP Model比較
+
+| 観点 | Aurora + Redshift Zero-ETL | Hyperscale Named Replica | AlloyDB Columnar on Primary | AlloyDB Columnar on Read Pool |
+|---|---|---|---|---|
+| Analytics Engine | **Dedicated MPP Redshift** | SQL Server Replica | Integrated Columnar | Integrated Columnar |
+| OLTP/OLAP Isolation | **非常に高い** | 高い | **低〜中** | 高い |
+| Data Freshness | Async Replication | Replica Lag | **非常に高い** | Replica Lagあり |
+| Resource Predictability | **高い** | 高い | **低くなり得る** | 高い |
+| Additional Compute | Redshift必要 | Replica必要 | 最小 | Read Pool必要 |
+| Additional Storage/State | **大きい** | Shared Storage | 小さい | Shared Storage |
+| Operational Boundary | **最も多い** | 中 | 最少 | 中 |
+| Heavy OLAP適性 | **高い** | 中 | 低〜中 | 中〜高 |
+| Operational Analytics | 中〜高 | 高 | **非常に高い** | **高い** |
+| Schema/Replication Complexity | **高い** | 中 | 低い | 中 |
+| OLTP p99へのOLAP影響 | 小さい | 小さい | **大きくなり得る** | 小さい |
+
+したがってHTAPに関して:
+
+```text
+Light / Operational Analytics
+        -> Integrated HTAP is attractive
+
+Mixed Workload needing isolation
+        -> Shared-storage + separate compute is attractive
+
+Heavy / Unpredictable OLAP
+        -> Separate MPP analytical engine may be safer
+```
+
+となる。
+
+> **Integrated HTAPは常にExternalized Analyticsより優れているわけではない。Freshness/SimplicityとResource Isolation/PredictabilityのTrade-offである。**
+
+---
+
+# 34. Adoption / Popularity / ReputationをDatabase選定の第一級NFRとして扱う
+
+Architectureが優れていても、それだけでWhole System Behaviorは決まらない。
+
+Database Service選定では:
+
+- 実Productionで何年使われているか
+- 類似ScaleのCustomerが存在するか
+- Failure/Upgrade/Performance Pathologyの知見が蓄積されているか
+- Community/SupportでIncident Patternを検索できるか
+- DBA/SRE Talentを採用しやすいか
+
+が非常に重要である。
+
+この観点は単なる「Popularity Contest」ではなく、
+
+> **Unknown UnknownsとMTTRを減らすOperational Risk Control**
+
+と考えるべきである。
+
+---
+
+## 34.1 Aurora: 最も強いService-specific Production Track Record
+
+AWSはAuroraについて **hundreds of thousands of customers** が利用していると公表している。
+
+また、Auroraには大規模なPublic Customer Referenceが長期間蓄積されている。
+
+独立Review SiteのTrustRadiusでは、2026年時点で概ね:
+
+- **8.1/10**
+- **162 Reviews and Ratings**
+
+という比較的大きなReview Corpusがある。
+
+Customer Reputationの典型的なPositive Themeは:
+
+- Availability / HA
+- Managed Operation
+- PostgreSQL/MySQL Compatibility
+- Backup / Recovery
+- Scale
+- AWS Ecosystem Integration
+
+一方、Negative/Concern Themeは:
+
+- Cost
+- I/O Economics
+- Managed Service内部のOpacity
+- Version/Extension制約
+- WorkloadによるScaling/Cost Surprise
+
+である。
+
+この「悪いところも広く知られている」こと自体がMaturityの価値でもある。
+
+```text
+Unknown Issue
+    |
+    v
+Search
+    |
+    +--> many previous incidents
+    +--> AWS docs
+    +--> community discussion
+    +--> established support paths
+```
+
+---
+
+## 34.2 Azure SQL / Hyperscale: SQL Server EcosystemのMaturityが大きい
+
+Azure SQL Database全体としては非常に大きなCustomer/Review Ecosystemを持つ。
+
+TrustRadiusでは2026年時点で概ね:
+
+- **8.5/10**
+- **293 Reviews and Ratings**
+
+が確認できる。
+
+ただし重要な注意点として:
+
+> **これはAzure SQL Database全体のReviewであり、Hyperscale-onlyのReview Countではない。**
+
+したがって、Azure SQL全体のMaturityをそのままSocrates/Hyperscale特有のStorage BehaviorのProduction Evidenceとみなすことはできない。
+
+それでもHyperscaleはすでに:
+
+- Core Banking
+- Large Enterprise
+- Large DB
+- High-throughput SaaS
+
+などのPublic Referenceを持つため、Experimental Architectureではない。
+
+加えて、SQL Server/T-SQL/SSMS/Azure Enterprise Ecosystemの既存Skillが非常に大きい。
+
+---
+
+## 34.3 AlloyDB: Architecture ReputationがAdoption Evidenceより先行している
+
+AlloyDBは:
+
+- Modern Multi-layer Disaggregation
+- PostgreSQL Compatibility
+- High Price/Performance Story
+- HTAP
+- AI/Vector
+- Transparent Pricing
+
+という点で技術的な評価が高い。
+
+GoogleのCustomer Storyには、Aurora PostgreSQLからAlloyDBへのMigration後にDatabase Costを **40%削減**したGalxeなどがある。
+
+しかし、Independent Review CorpusはAurora/Azure SQLより明確に小さい。
+
+G2では2026年時点でAlloyDB固有Reviewは **1件**しか確認できない。
+
+これは:
+
+> AlloyDBが使われていない
+
+ことを意味しない。
+
+より正確には:
+
+> **長期間・多数CustomerによるService-specific Operational ExperienceがPublicに観測できる量がまだ少ない**
+
+ことを意味する。
+
+したがってAlloyDBでは、Benchmark/Architecture上の魅力に加えて:
+
+```text
+Maturity Risk Premium
+    =
+less public edge-case history
++ fewer independent troubleshooting reports
++ shorter upgrade/failure history
+```
+
+を考慮すべきである。
+
+---
+
+## 34.4 Architecture SophisticationとOperational Confidenceは別軸
+
+本セッションのArchitecture比較だけなら:
+
+```text
+Functional Disaggregation
+
+Socrates / AlloyDB
+        >
+Original Aurora
+```
+
+と評価し得る。
+
+しかしProduction Adoption Confidenceでは:
+
+```text
+Operational Evidence / Maturity
+
+Aurora
+    very strong
+
+Azure SQL / Hyperscale
+    strong
+
+AlloyDB
+    growing / less publicly observable
+```
+
+という別の順位になり得る。
+
+この2軸を混同しないことが重要である。
+
+---
+
+## 34.5 PopularityをOperational Reliabilityへ変換して考える
+
+Popularityの本質的な価値はSocial Proofではない。
+
+```text
+Large Installed Base
+        |
+        v
+More real failure cases
+        |
+        v
+More known workarounds
+        |
+        v
+Better documentation/community/support familiarity
+        |
+        v
+Lower MTTR
+```
+
+つまり:
+
+\[
+Operational\ Availability
+\neq
+Service\ SLA\ only
+\]
+
+であり、
+
+\[
+Operational\ Availability
+=
+Service\ Reliability
++
+Observability
++
+Operator\ Knowledge
++
+Ecosystem
++
+Support\ Maturity
+\]
+
+と考える方が実務的である。
+
+---
+
+## 34.6 選定ScoreへMaturity/Ecosystemを明示的に入れる
+
+Mission-critical OLTPでは、Database Serviceの評価を次のように考えるのが有用である。
+
+\[
+Score =
+W_1(WorkloadFit)
++
+W_2(NFRFit)
++
+W_3(PricePerformance)
++
+W_4(OperationalMaturity)
++
+W_5(Ecosystem)
++
+W_6(Portability)
+\]
+
+例えばCore Transaction Systemでは:
+
+> **Operational Maturity + Ecosystemに20〜30%程度のDecision Weightを置く**
+
+ことも十分合理的である。
+
+その結果:
+
+```text
+New DB:
+    20-30% faster
+    20% cheaper
+
+but:
+    little production history
+    little community knowledge
+    unknown upgrade/failure corner cases
+```
+
+なら、必ずしもMigrationすべきとは限らない。
+
+逆に:
+
+```text
+Workload strongly matches new architecture
++ PostgreSQL compatibility
++ realistic load/failure testing passed
++ vendor support acceptable
+```
+
+なら、新しいServiceのMaturity Risk Premiumを受け入れる価値がある。
+
+---
+
+## 34.7 Adoption / Reputation比較表
+
+| 観点 | Aurora | Azure SQL / Hyperscale | AlloyDB |
+|---|---|---|---|
+| Service History | **非常に長い** | 長い / Hyperscaleも成熟 | より新しい |
+| Service-specific Adoption Evidence | **非常に強い** | Azure SQL全体は非常に強い、Hyperscale-specificはやや不透明 | Growing |
+| Independent Review Corpus | **大きい** | **大きい（Azure SQL全体）** | **小さい** |
+| Large Enterprise References | **非常に多い** | **多い** | 増加中 |
+| Community Troubleshooting Knowledge | **非常に多い** | 多い | 少ない |
+| PostgreSQL Ecosystem Leverage | **高い (Aurora PG)** | N/A | **高い** |
+| SQL Server Ecosystem Leverage | N/A | **非常に高い** | N/A |
+| Architecture Novelty | Historical Pioneer | Advanced | **Very Modern** |
+| Unknown-unknown Risk | **低い** | 低〜中 | **相対的に高い** |
+| Adoption Risk | **低い** | 低〜中 | 中 |
+
+この表はMarket Shareの客観的ランキングではなく、**2026年時点のPublic Evidence量を使ったRisk-oriented Interpretation**である。
+
+---
+
+## 34.8 Database Selectionへの追加質問
+
+Architecture評価に加えて、次を必ず確認する。
+
+1. **同じIndustry/Scaleで何社がProduction利用しているか**
+2. **そのCustomerは何年間運用しているか**
+3. **Service-specificなIndependent Reviewが十分あるか**
+4. **Known Failure Modes / Wait Events / Throttling Behaviorが公開されているか**
+5. **Upgrade/Version Changeの長期Historyがあるか**
+6. **Support Teamが類似Incidentを何度も扱っているか**
+7. **必要なDBA/SRE Skillを市場から採用できるか**
+8. **Migration後にArchitecture Advantageが実Workloadで再現できるか**
+
+最も重要な問いは:
+
+> **「このArchitectureは自分のWorkloadを処理できるか」だけでなく、「自分と似たCustomerが、すでにどれだけFailure Modeを発見してくれているか」**
+
+である。
+
+---
+
+# 35. 「Cheaper and Faster」Evidenceが実際に示すもの
 
 このセッションで確認した最も強いAcademic/Model Evidenceは次の通りである。
 
@@ -1453,7 +2148,7 @@ AlloyDB-style Storage
 
 ---
 
-# 33. このセッションでの主要結論: Claim Audit
+# 36. このセッションでの主要結論: Claim Audit
 
 | Claim | Assessment |
 |---|---|
@@ -1485,7 +2180,7 @@ AlloyDB-style Storage
 
 ---
 
-# 34. 最も深いArchitecture Lesson
+# 37. 最も深いArchitecture Lesson
 
 この進化は、Synchronous Transaction Pathに残す仕事を段階的に減らしていく過程として理解できる。
 
@@ -1548,7 +2243,7 @@ Background:
 
 ---
 
-# 35. 2つ目の深い教訓: “Move” と “Eliminate” を区別する
+# 38. 2つ目の深い教訓: “Move” と “Eliminate” を区別する
 
 Cloud-native Optimizationを評価するとき、常に次を問うべきである。
 
@@ -1575,7 +2270,7 @@ What work became cheaper because it moved to a different tier?
 
 ---
 
-# 36. 3つ目の深い教訓: NFRによるSpecialization
+# 39. 3つ目の深い教訓: NFRによるSpecialization
 
 SocratesとAlloyDBの設計から、次の一般原則を導ける。
 
@@ -1609,7 +2304,7 @@ Cheap Durable Capacity Tier
 
 ---
 
-# 37. 4つ目の深い教訓: DurabilityにはPrice/Performance Frontierがある
+# 40. 4つ目の深い教訓: DurabilityにはPrice/Performance Frontierがある
 
 AuroraはAggressive Replicationによって非常に高いDurabilityを得ることを示した。
 
@@ -1633,7 +2328,7 @@ Socrates/AlloyDBは、別の分離点により次を提供し得ることを示�
 
 ---
 
-# 38. Open Research Questions
+# 41. Open Research Questions
 
 このセッションでは、公開Literatureで十分に解決されていない領域がいくつか明らかになった。
 
@@ -1724,7 +2419,7 @@ Cost / Latency / Elasticity
 
 ---
 
-# 39. 推奨評価フレームワーク
+# 42. 推奨評価フレームワーク
 
 新しいCloud Databaseを比較するときは、「NoSQL」「NewSQL」「Disaggregated」といったラベルだけではなく、次のMatrixを埋めるべきである。
 
@@ -1773,7 +2468,7 @@ Cost / Latency / Elasticity
 
 ---
 
-# 40. 最終評価
+# 43. 最終評価
 
 ## Aurora
 
@@ -1823,7 +2518,7 @@ Cost / Latency / Elasticity
 
 ---
 
-# 41. 一文での総括
+# 44. 一文での総括
 
 > **AuroraはPage WorkをDB Computeから外した。SocratesはDurability、Log Distribution、Page Processing、Cheap Storageを別Serviceへ分離した。AlloyDBはさらにREDO/Page-processing Tierを明示的にElastic化した。**
 
@@ -1864,6 +2559,47 @@ AlloyDB:
    https://cloud.google.com/blog/products/databases/alloydb-for-postgresql-intelligent-scalable-storage
 
 6. Jack Hu, Eric Lee, Prashanth Purnananda, Hanuma Kodavalla. **Scaling and Hardening XLOG: The SQL Azure Hyperscale Log Service.** ICDE 2025, pp. 4211–4221. DOI: 10.1109/ICDE65448.2025.00314.
+
+---
+
+
+7. Microsoft Azure. **Azure SQL Database — Hyperscale price/performance positioning vs. Amazon Aurora PostgreSQL.**  
+   https://azure.microsoft.com/en-us/products/azure-sql/database
+
+8. Microsoft Learn. **Hyperscale secondary replicas — Named replicas and HTAP workloads.**  
+   https://learn.microsoft.com/en-us/azure/azure-sql/database/service-tier-hyperscale-replicas
+
+9. Google Cloud. **AlloyDB on Axion-powered C4A instances is generally available.**  
+   AlloyDB vs. Aurora PostgreSQLのVendor/Third-party benchmark positioning（最大2× Throughput / 3× Price-Performance）。  
+   https://cloud.google.com/blog/products/databases/c4a-axion-processors-for-alloydb-now-ga
+
+10. Google Cloud Documentation. **AlloyDB sizing and deployment recommendations / Columnar Engine configuration.**  
+    Primary-only HTAP、Read Pool分離、Column StoreのDefault 30% Memory Allocation。  
+    https://docs.cloud.google.com/alloydb/docs/use-sizing-recommendations  
+    https://docs.cloud.google.com/alloydb/docs/columnar-engine/configure
+
+11. AWS Documentation. **Amazon Redshift zero-ETL integrations — considerations, limitations, and troubleshooting.**  
+    Primary Key要件、DDL/Resync、Integration Lag等。  
+    https://docs.aws.amazon.com/redshift/latest/mgmt/zero-etl.reqs-lims.html  
+    https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/zero-etl.html
+
+12. AWS. **Celebrating 10 years of Amazon Aurora innovation / Amazon RDS customer references.**  
+    AWSはAuroraについてhundreds of thousands of customersと公表。  
+    https://aws.amazon.com/blogs/aws/celebrating-10-years-of-amazon-aurora-innovation/  
+    https://aws.amazon.com/rds/customers/
+
+13. TrustRadius. **Amazon Aurora Reviews / Azure SQL Database Reviews.**  
+    2026年時点のIndependent Review Corpusの参考。  
+    https://www.trustradius.com/products/amazon-aurora/reviews  
+    https://www.trustradius.com/products/sql-azure/reviews
+
+14. G2. **Google AlloyDB for PostgreSQL Reviews.**  
+    2026年時点ではAlloyDB固有のIndependent Review Corpusが小さいことの参考。  
+    https://www.g2.com/products/google-alloydb-for-postgresql/reviews
+
+15. Google Cloud. **Galxe migrates to AlloyDB for PostgreSQL, cutting costs by 40%.**  
+    Aurora PostgreSQLからAlloyDBへのCustomer Migration Story。  
+    https://cloud.google.com/blog/products/databases/galxe-migrates-to-alloydb-for-postgresql
 
 ---
 
